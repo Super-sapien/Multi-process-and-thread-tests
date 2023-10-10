@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAX_THREADS 4
+#define MAX_THREADS 32
 
 
 typedef double MathFunc_t(double);
@@ -22,7 +22,6 @@ typedef struct {
 
     pthread_mutex_t *lock;
     pthread_t thread;
-
 } Worker;
 
 
@@ -52,7 +51,7 @@ static MathFunc_t* const FUNCS[NUM_FUNCS] = {&sin, &gaussian, &chargeDecay};
 
 //Integrate using the trapezoid method. 
 // pass in worker to integrateTrap
-double integrateTrap(void *ptr)
+void* integrateTrap(void *ptr)
 {
     Worker *worker = (Worker*)ptr;
 	double rangeSize = worker->rangeEnd - worker->rangeStart;
@@ -65,15 +64,15 @@ double integrateTrap(void *ptr)
 
 		area += dx * ( worker->func(smallx) + worker->func(bigx) ) / 2; //Would be more efficient to multiply area by dx once at the end. 
 	}
-
+	
+	// area *= dx;
     // do the mutex locking and unlocking while changing total
     pthread_mutex_lock(worker->lock); // lock other processes out of critical region
-    (*worker->total)++; // increment the total
+    (*worker->total) += area; // increment the total
     pthread_mutex_unlock(worker->lock); // unlock so other processes can access if needed
-    
-	return area;
+    // pthread_exit(NULL);
+	return NULL;
 }
-
 
 
 
@@ -98,28 +97,47 @@ int main(void)
 	size_t funcId;
     pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; // initialize mutex
     Worker workers[MAX_THREADS];
-    double total = 0;
+    
 
 	while (getValidInput(&rangeStart, &rangeEnd, &numSteps, &funcId)) {
-        double totalRange = rangeEnd - rangeStart;
-        double stepSize = totalRange / MAX_THREADS;
+		double total = 0;
+        // double totalRange = rangeEnd - rangeStart;
+		double rangePerStep = (rangeEnd - rangeStart) / MAX_THREADS;
+        // double stepSize = numSteps / MAX_THREADS;
+		int stepCount = 0;
+		// double extraSteps = numSteps % MAX_THREADS;
+
+
         for (int i = 0; i < MAX_THREADS; ++i) {
             Worker *worker = &workers[i]; // Create workers
             worker->total = &total; // Pass the global total into each thread
-            worker->numSteps = totalRange / stepSize;
-            worker->rangeStart = rangeStart;
-            worker->rangeEnd = rangeEnd;
-            worker->func = FUNCS[funcId];
-            worker->lock = &lock; // init the workers mutex
-            pthread_create(&worker->thread, NULL, double (*)(integrateTrap(worker)), NULL);
+			worker->lock = &lock; // init the workers mutex
+			worker->func = FUNCS[funcId];
+			
+            worker->rangeStart = rangeStart + i * rangePerStep;
+            worker->rangeEnd = rangeStart + (i + 1) * rangePerStep;
+
+			if (i == MAX_THREADS - 1) {
+				worker->numSteps = numSteps - stepCount;
+			} else {
+				worker->numSteps = floor(numSteps / MAX_THREADS);
+				stepCount += floor(numSteps / MAX_THREADS);
+			}
+            
+			pthread_create(&worker->thread, NULL, integrateTrap, (void*)worker);
         }
-        for (int i = 0; i < MAX_THREADS; ++i) {
-            pthread_join(workers[i].thread, NULL); // wait for each thread to terminate
-        }
+
+		for (int i = 0; i < MAX_THREADS; ++i) {
+			// void *ret;
+			// Worker *worker = &workers[i];
+			pthread_join(workers[i].thread, NULL); // wait for each thread to terminate
+			// pthread_join(worker->thread, &ret);
+		}
 
 		// double area = integrateTrap(FUNCS[funcId], rangeStart, rangeEnd, numSteps);
 
 		printf("The integral of function %zu in range %g to %g is %.10g\n", funcId, rangeStart, rangeEnd, total);
+		// exit(0);
 	}
 
 	exit(0);

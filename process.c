@@ -9,7 +9,7 @@
 #include <sys/wait.h>
 
 /* the more threads you have, the faster it runs, the less accurate it is? */
-#define MAX_CHILDREN 5
+#define MAX_CHILDREN 3
 static int numChildren = 0;
 
 typedef double MathFunc_t(double);
@@ -64,7 +64,7 @@ bool getValidInput(double* start, double* end, size_t* numSteps, size_t* funcId)
 	printf("Query: [start] [end] [numSteps] [funcId]\n");
 
 	//Read input numbers and place them in the given addresses:
-	size_t numRead = scanf("%lf %lf %zu %zu", start, end, numSteps, funcId);
+	size_t numRead = scanf("%lf %lf %zu %zu ", start, end, numSteps, funcId);
 
 	//Return whether the given range is valid:
 	return (numRead == 4 && *end >= *start && *numSteps > 0 && *funcId < NUM_FUNCS);
@@ -72,7 +72,7 @@ bool getValidInput(double* start, double* end, size_t* numSteps, size_t* funcId)
 
 void childDied() {
 	numChildren--;
-	signal(SIGCHLD, childDied);
+	// signal(SIGCHLD, childDied);
 	// wait(NULL);
 }
 
@@ -85,24 +85,34 @@ int main(void)
 
 	pid_t childPid;
 	signal(SIGCHLD, childDied);  /* register signal for when child stopped or terminated */
-	while (getValidInput(&rangeStart, &rangeEnd, &numSteps, &funcId)) { // parent reprompts for input by calling getValidInput
+	while (1) { // parent reprompts for input by calling getValidInput
 		/* wait here for num children to be less than max children */
 		/* TODO: change numChildren to a semaphore */
-		while (numChildren >= MAX_CHILDREN) {
-			wait(NULL);
-		}
+		// while (numChildren >= MAX_CHILDREN) {
+		// 	wait(NULL);
+		// }
 		if (numChildren < MAX_CHILDREN) {
-			
-			childPid = fork();
-			if (childPid == 0) { // inside child process
-				double area = integrateTrap(FUNCS[funcId], rangeStart, rangeEnd, numSteps); // child runs integrateTrap
-				printf("The integral of function %zu in range %g to %g is %.10g\n", funcId, rangeStart, rangeEnd, area);
-				_exit(0); // forces exit immediately
+			if (getValidInput(&rangeStart, &rangeEnd, &numSteps, &funcId)) {
+				childPid = fork();
+				if (childPid == 0) { // inside child process
+					double area = integrateTrap(FUNCS[funcId], rangeStart, rangeEnd, numSteps); // child runs integrateTrap
+					printf("The integral of function %zu in range %g to %g is %.10g\n", funcId, rangeStart, rangeEnd, area);
+					fflush(stdout);
+					_exit(0); // forces exit immediately
+				} else {
+					numChildren++;
+				}
 			} else {
-				numChildren++;
-
+				break;
 			}
 		};
 	}
-	exit(1);
+	while (wait(NULL) > 0) {
+		continue;
+	}
+	// while (numChildren > 0) {
+	// 	pause();
+	// }
+
+	exit(0);
 }
