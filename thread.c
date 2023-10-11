@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAX_THREADS 32
+#define MAX_THREADS 4
 
 
 typedef double MathFunc_t(double);
@@ -19,7 +19,7 @@ typedef struct {
     double rangeEnd;
 	size_t numSteps;
     double *total;
-
+	size_t startIndex;
     pthread_mutex_t *lock;
     pthread_t thread;
 } Worker;
@@ -58,7 +58,7 @@ void* integrateTrap(void *ptr)
 	double dx = rangeSize / worker->numSteps;
 
 	double area = 0;
-	for (size_t i = 0; i < worker->numSteps; i++) {
+	for (size_t i = worker->startIndex; i < worker->numSteps; i += MAX_THREADS) {
 		double smallx = worker->rangeStart + i*dx;
 		double bigx = worker->rangeStart + (i+1)*dx;
 
@@ -75,11 +75,10 @@ void* integrateTrap(void *ptr)
 }
 
 
-
 bool getValidInput(double* start, double* end, size_t* numSteps, size_t* funcId)
 {
 	printf("Query: [start] [end] [numSteps] [funcId]\n");
-
+	fflush(stdout); // immediately write out the stdout buffer (prevents print stmt being written more than desired)
 	//Read input numbers and place them in the given addresses:
 	size_t numRead = scanf("%lf %lf %zu %zu", start, end, numSteps, funcId);
 
@@ -102,10 +101,10 @@ int main(void)
 	while (getValidInput(&rangeStart, &rangeEnd, &numSteps, &funcId)) {
 		double total = 0;
         // double totalRange = rangeEnd - rangeStart;
-		double rangePerStep = (rangeEnd - rangeStart) / MAX_THREADS;
+		// double rangePerStep = (rangeEnd - rangeStart) / MAX_THREADS;
         // double stepSize = numSteps / MAX_THREADS;
-		int stepCount = 0;
-		// double extraSteps = numSteps % MAX_THREADS;
+		// int stepCount = 0;
+		// int extraSteps = numSteps % MAX_THREADS;
 
 
         for (int i = 0; i < MAX_THREADS; ++i) {
@@ -113,31 +112,28 @@ int main(void)
             worker->total = &total; // Pass the global total into each thread
 			worker->lock = &lock; // init the workers mutex
 			worker->func = FUNCS[funcId];
-			
-            worker->rangeStart = rangeStart + i * rangePerStep;
-            worker->rangeEnd = rangeStart + (i + 1) * rangePerStep;
+			worker->startIndex = i;
+            worker->rangeStart = rangeStart;
+            worker->rangeEnd = rangeEnd;
+			worker->numSteps = numSteps;
 
-			if (i == MAX_THREADS - 1) {
-				worker->numSteps = numSteps - stepCount;
-			} else {
-				worker->numSteps = floor(numSteps / MAX_THREADS);
-				stepCount += floor(numSteps / MAX_THREADS);
-			}
+			// if (i == MAX_THREADS - 1) {
+			// 	worker->numSteps = numSteps - stepCount;
+			
+			// } else {
+			// 	// worker->numSteps = floor(numSteps / MAX_THREADS);
+			// 	// stepCount += floor(numSteps / MAX_THREADS);
+			// 	worker->numSteps = extraSteps;
+			// 	// stepCount += (numSteps / MAX_THREADS);
+			// }
             
 			pthread_create(&worker->thread, NULL, integrateTrap, (void*)worker);
         }
 
 		for (int i = 0; i < MAX_THREADS; ++i) {
-			// void *ret;
-			// Worker *worker = &workers[i];
 			pthread_join(workers[i].thread, NULL); // wait for each thread to terminate
-			// pthread_join(worker->thread, &ret);
 		}
-
-		// double area = integrateTrap(FUNCS[funcId], rangeStart, rangeEnd, numSteps);
-
 		printf("The integral of function %zu in range %g to %g is %.10g\n", funcId, rangeStart, rangeEnd, total);
-		// exit(0);
 	}
 
 	exit(0);
