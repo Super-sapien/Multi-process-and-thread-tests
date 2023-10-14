@@ -9,8 +9,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define MAX_THREADS 1
-#define MAX_CHILDREN 1
+#define MAX_THREADS 32
+#define MAX_CHILDREN 32
 static int numChildren = 0;
 
 typedef double MathFunc_t(double);
@@ -74,8 +74,8 @@ void* integrateTrap(void *ptr)
 
 bool getValidInput(double* start, double* end, size_t* numSteps, size_t* funcId)
 {
-	printf("Query: [start] [end] [numSteps] [funcId]\n");
-	fflush(stdout); // immediately write out the stdout buffer (prevents print stmt being written more than desired)
+	// printf("Query: [start] [end] [numSteps] [funcId]\n");
+	// fflush(stdout); // immediately write out the stdout buffer (prevents print stmt being written more than desired)
 	//Read input numbers and place them in the given addresses:
 	size_t numRead = scanf("%lf %lf %zu %zu ", start, end, numSteps, funcId);
 

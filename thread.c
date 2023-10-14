@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAX_THREADS 4
+#define MAX_THREADS 32
 
 
 typedef double MathFunc_t(double);

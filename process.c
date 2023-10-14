@@ -9,7 +9,7 @@
 #include <sys/wait.h>
 
 /* the more threads you have, the faster it runs, the less accurate it is? */
-#define MAX_CHILDREN 3
+#define MAX_CHILDREN 32
 static int numChildren = 0;
 
 typedef double MathFunc_t(double);
