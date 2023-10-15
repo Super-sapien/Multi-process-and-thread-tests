@@ -8,7 +8,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 
-/* the more threads you have, the faster it runs, the less accurate it is? */
+
 #define MAX_CHILDREN 32
 static int numChildren = 0;
 
@@ -36,9 +36,6 @@ double chargeDecay(double x)
 static MathFunc_t* const FUNCS[NUM_FUNCS] = {&sin, &gaussian, &chargeDecay};
 
 
-
-
-
 //Integrate using the trapezoid method. 
 double integrateTrap(MathFunc_t* func, double rangeStart, double rangeEnd, size_t numSteps)
 {
@@ -57,12 +54,10 @@ double integrateTrap(MathFunc_t* func, double rangeStart, double rangeEnd, size_
 }
 
 
-
-
 bool getValidInput(double* start, double* end, size_t* numSteps, size_t* funcId)
 {
 	printf("Query: [start] [end] [numSteps] [funcId]\n");
-
+	fflush(stdout); // immediately write out the stdout buffer 
 	//Read input numbers and place them in the given addresses:
 	size_t numRead = scanf("%lf %lf %zu %zu ", start, end, numSteps, funcId);
 
@@ -72,8 +67,6 @@ bool getValidInput(double* start, double* end, size_t* numSteps, size_t* funcId)
 
 void childDied() {
 	numChildren--;
-	// signal(SIGCHLD, childDied);
-	// wait(NULL);
 }
 
 int main(void)
@@ -86,11 +79,6 @@ int main(void)
 	pid_t childPid;
 	signal(SIGCHLD, childDied);  /* register signal for when child stopped or terminated */
 	while (1) { // parent reprompts for input by calling getValidInput
-		/* wait here for num children to be less than max children */
-		/* TODO: change numChildren to a semaphore */
-		// while (numChildren >= MAX_CHILDREN) {
-		// 	wait(NULL);
-		// }
 		if (numChildren < MAX_CHILDREN) {
 			if (getValidInput(&rangeStart, &rangeEnd, &numSteps, &funcId)) {
 				childPid = fork();
@@ -107,12 +95,10 @@ int main(void)
 			}
 		};
 	}
+	// Parent waits for all children to have returned
 	while (wait(NULL) > 0) {
 		continue;
 	}
-	// while (numChildren > 0) {
-	// 	pause();
-	// }
 
 	exit(0);
 }

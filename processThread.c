@@ -9,8 +9,8 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-#define MAX_THREADS 32
-#define MAX_CHILDREN 32
+#define MAX_THREADS 4
+#define MAX_CHILDREN 4
 static int numChildren = 0;
 
 typedef double MathFunc_t(double);
@@ -64,7 +64,6 @@ void* integrateTrap(void *ptr)
 		area += dx * ( worker->func(smallx) + worker->func(bigx) ) / 2; //Would be more efficient to multiply area by dx once at the end. 
 	}
 	
-	// area *= dx;
     pthread_mutex_lock(worker->lock); // lock other processes out of critical region
     (*worker->totalArea) += area;
     pthread_mutex_unlock(worker->lock); // unlock so other processes can access if needed
@@ -74,8 +73,8 @@ void* integrateTrap(void *ptr)
 
 bool getValidInput(double* start, double* end, size_t* numSteps, size_t* funcId)
 {
-	// printf("Query: [start] [end] [numSteps] [funcId]\n");
-	// fflush(stdout); // immediately write out the stdout buffer (prevents print stmt being written more than desired)
+	printf("Query: [start] [end] [numSteps] [funcId]\n");
+	fflush(stdout); // immediately write out the stdout buffer (prevents print stmt being written more than desired)
 	//Read input numbers and place them in the given addresses:
 	size_t numRead = scanf("%lf %lf %zu %zu ", start, end, numSteps, funcId);
 
@@ -92,7 +91,7 @@ void spawnProcessThread(size_t funcId, double rangeStart, double rangeEnd, size_
     pid_t childPid = fork();
     if (childPid == 0) { // inside child process
         double totalArea = 0;
-        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; // initialize mutex
+        pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
         Worker workers[MAX_THREADS];
 
         // Create workers
@@ -112,6 +111,7 @@ void spawnProcessThread(size_t funcId, double rangeStart, double rangeEnd, size_
         for (size_t i = 0; i < MAX_THREADS; ++i) {
             pthread_join(workers[i].thread, NULL); // wait for each thread to terminate and join results
         }
+
         printf("The integral of function %zu in range %g to %g is %.10g\n", funcId, rangeStart, rangeEnd, totalArea);
         fflush(stdout); // immediately print output buffer
         _exit(0); // forces exit from child process immediately

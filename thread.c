@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-
 #include <pthread.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -46,9 +45,6 @@ double chargeDecay(double x)
 static MathFunc_t* const FUNCS[NUM_FUNCS] = {&sin, &gaussian, &chargeDecay};
 
 
-
-
-
 //Integrate using the trapezoid method. 
 // pass in worker to integrateTrap
 void* integrateTrap(void *ptr)
@@ -65,7 +61,6 @@ void* integrateTrap(void *ptr)
 		area += dx * ( worker->func(smallx) + worker->func(bigx) ) / 2; //Would be more efficient to multiply area by dx once at the end. 
 	}
 	
-	// area *= dx;
     // do the mutex locking and unlocking while changing total
     pthread_mutex_lock(worker->lock); // lock other processes out of critical region
     (*worker->total) += area; // increment the total
@@ -96,36 +91,19 @@ int main(void)
 	size_t funcId;
     pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER; // initialize mutex
     Worker workers[MAX_THREADS];
-    
 
 	while (getValidInput(&rangeStart, &rangeEnd, &numSteps, &funcId)) {
 		double total = 0;
-        // double totalRange = rangeEnd - rangeStart;
-		// double rangePerStep = (rangeEnd - rangeStart) / MAX_THREADS;
-        // double stepSize = numSteps / MAX_THREADS;
-		// int stepCount = 0;
-		// int extraSteps = numSteps % MAX_THREADS;
-
 
         for (int i = 0; i < MAX_THREADS; ++i) {
             Worker *worker = &workers[i]; // Create workers
             worker->total = &total; // Pass the global total into each thread
-			worker->lock = &lock; // init the workers mutex
+			worker->lock = &lock;
 			worker->func = FUNCS[funcId];
 			worker->startIndex = i;
             worker->rangeStart = rangeStart;
             worker->rangeEnd = rangeEnd;
 			worker->numSteps = numSteps;
-
-			// if (i == MAX_THREADS - 1) {
-			// 	worker->numSteps = numSteps - stepCount;
-			
-			// } else {
-			// 	// worker->numSteps = floor(numSteps / MAX_THREADS);
-			// 	// stepCount += floor(numSteps / MAX_THREADS);
-			// 	worker->numSteps = extraSteps;
-			// 	// stepCount += (numSteps / MAX_THREADS);
-			// }
             
 			pthread_create(&worker->thread, NULL, integrateTrap, (void*)worker);
         }
